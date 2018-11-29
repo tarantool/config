@@ -37,12 +37,22 @@ or via environment variable:
 TARANTOOL_SOME_OPTION=foobar tarantool app.lua
 ```
 
-or by placing the following configuration file to `$HOME/.config/tarantool/tarantool.cfg`:
+or by placing the following configuration file to `$HOME/.config/tarantool/tarantool.ini`:
 
 ```ini
 [default]
 
 some_option = foobar
+
+```
+
+Alternatively, you can use yml format as well `$HOME/.config/tarantool/tarantool.yml`:
+
+```ini
+---
+
+default:
+  some_option: foobar
 
 ```
 
@@ -53,13 +63,13 @@ sources and then merge them together according to the priority of the
 source. Configuration files have lowest priority, then command line
 options, then environment variables.
 
-Configuration files have a plain old `ini` format, and have multiple
+Configuration files have an `ini` or `yaml` format and have multiple
 sections that allow to specify settings for all tarantool apps,
 specific tarantool app or a specific instance of tarantool app.
 
-`[default]` section of configuration file has global configuration,
-then if there is a section called `[myapp]`, values from there will
-override values from `[default]`, and then `[myapp.instance_name]`
+`default` section of configuration file has global configuration,
+then if there is a section called `myapp`, values from there will
+override values from `default`, and then `myapp.instance_name`
 with highest priority.
 
 

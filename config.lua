@@ -2,7 +2,7 @@
 
 local fio = require('fio')
 local errno = require('errno')
-
+local yaml = require('yaml')
 local base_dir = fio.abspath(fio.dirname(arg[0]))
 
 local function read_file(path)
@@ -25,7 +25,7 @@ local function read_file(path)
 end
 
 
-local function parse_string(str, app_name, instance_name)
+local function parse_ini(str, app_name, instance_name)
     local sections = {'default'}
 
     if app_name ~= nil then
@@ -68,29 +68,43 @@ local function parse_string(str, app_name, instance_name)
 end
 
 local function parse_yaml(data, app_name, instance_name)
-    local yaml = require('yaml')
+    local sections = {'default'}
+
+    if app_name ~= nil then
+        table.insert(sections, app_name)
+
+        if instance_name ~= nil then
+            table.insert(sections, app_name .. '.' .. instance_name)
+        end
+    end
+
     local ok, cfg = pcall(yaml.decode, data)
     if not ok then
         return nil, cfg
     end
 
-    if app_name ~= nil then
-        cfg = cfg[app_name]
-        if instance_name ~= nil and cfg ~= nil then
-            cfg = cfg[instance_name]
+    local res = {}
+
+    for _, section in ipairs(sections) do
+        for argname, argvalue in pairs(cfg[section] or {}) do
+            res[argname] = argvalue
         end
     end
 
-    return cfg
+    return res
 end
 
-local function parse_file(app_name, instance_name, format)
+local function parse_file(app_name, instance_name)
     local home = os.getenv('HOME')
     local candidates = {
-        'tarantool.cfg',
-        '.tarantool.cfg',
-        fio.pathjoin('/etc/tarantool/tarantool.cfg'),
-        fio.pathjoin(home, '/.config/tarantool/tarantool.cfg')
+        'tarantool.yml',
+        '.tarantool.yml',
+        fio.pathjoin(home, '/.config/tarantool/tarantool.yml'),
+        fio.pathjoin('/etc/tarantool/tarantool.yml'),
+        'tarantool.ini',
+        '.tarantool.ini',
+        fio.pathjoin(home, '/.config/tarantool/tarantool.ini'),
+        fio.pathjoin('/etc/tarantool/tarantool.ini')
     }
 
     for _, candidate in ipairs(candidates) do
@@ -100,10 +114,10 @@ local function parse_file(app_name, instance_name, format)
                 return nil, err
             end
 
-            if format == 'yaml' then
+            if string.endswith(candidate, 'yml') then
                 return parse_yaml(data, app_name, instance_name)
-            else -- format == 'ini' or unsupported
-                return parse_string(data, app_name, instance_name)
+            elseif string.endswith(candidate, 'ini') then
+                return parse_ini(data, app_name, instance_name)
             end
         end
     end
@@ -164,14 +178,13 @@ end
 local function parse(options)
     local rockspec = find_rockspec(base_dir)
     options = options or {}
-    options.format = options.format or 'ini'
 
     if rockspec ~= nil then
         options.app_name = options.app_name or string.match(rockspec, '^(%g+)%-scm%-1%.rockspec$')
     end
 
     local configs = {
-        parse_file(options.app_name, options.instance_name, options.format),
+        parse_file(options.app_name, options.instance_name),
         parse_args(),
         parse_env()
     }
