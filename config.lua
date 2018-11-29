@@ -67,7 +67,24 @@ local function parse_string(str, app_name, instance_name)
     return res
 end
 
-local function parse_file(app_name, instance_name)
+local function parse_yaml(data, app_name, instance_name)
+    local yaml = require('yaml')
+    local ok, cfg = pcall(yaml.decode, data)
+    if not ok then
+        return nil, cfg
+    end
+
+    if app_name ~= nil then
+        cfg = cfg[app_name]
+        if instance_name ~= nil and cfg ~= nil then
+            cfg = cfg[instance_name]
+        end
+    end
+
+    return cfg
+end
+
+local function parse_file(app_name, instance_name, format)
     local home = os.getenv('HOME')
     local candidates = {
         'tarantool.cfg',
@@ -79,11 +96,15 @@ local function parse_file(app_name, instance_name)
     for _, candidate in ipairs(candidates) do
         if fio.path.exists(candidate) then
             local data, err = read_file(candidate)
-
             if data == nil then
                 return nil, err
             end
-            return parse_string(data, app_name, instance_name)
+
+            if format == 'yaml' then
+                return parse_yaml(data, app_name, instance_name)
+            else -- format == 'ini' or unsupported
+                return parse_string(data, app_name, instance_name)
+            end
         end
     end
 
@@ -143,13 +164,14 @@ end
 local function parse(options)
     local rockspec = find_rockspec(base_dir)
     options = options or {}
+    options.format = options.format or 'ini'
 
     if rockspec ~= nil then
         options.app_name = options.app_name or string.match(rockspec, '^(%g+)%-scm%-1%.rockspec$')
     end
 
     local configs = {
-        parse_file(options.app_name, options.instance_name),
+        parse_file(options.app_name, options.instance_name, options.format),
         parse_args(),
         parse_env()
     }
