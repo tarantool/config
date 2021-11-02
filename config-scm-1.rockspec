@@ -1,7 +1,7 @@
 package = "config"
 version = "scm-1"
 source = {
-    url    = 'git://github.com/tarantool/config.git',
+    url    = 'git+https://github.com/tarantool/config.git',
     branch = "master",
 }
 
